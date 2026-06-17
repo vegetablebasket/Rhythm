@@ -1,0 +1,4 @@
+repository "RhythmYouthGame@tj_wizard0831@cloud.cn"
+  path "/"
+    br "/main"
+    co "/main"
