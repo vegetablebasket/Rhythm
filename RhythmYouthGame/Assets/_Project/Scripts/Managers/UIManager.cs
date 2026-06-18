@@ -25,9 +25,22 @@ public class UIManager : MonoBehaviour
     public Text maxComboText;
 
     [Header("Feedback Settings")]
-    public float feedbackDuration = 0.8f;
+    public float feedbackDuration = 0.7f;
+
+    [Header("Feedback Style")]
+    public Color goodColor = new Color(0.2f, 1f, 0.3f, 1f);
+    public Color missColor = new Color(1f, 0.15f, 0.15f, 1f);
+
+    public int goodFontSize = 48;
+    public int missFontSize = 58;
+
+    [Header("Miss Flash")]
+    public Image missFlashImage;
+    public float missFlashDuration = 0.25f;
+    public float missFlashMaxAlpha = 0.45f;
 
     private Coroutine feedbackCoroutine;
+    private Coroutine missFlashCoroutine;
 
     private void Awake()
     {
@@ -42,10 +55,7 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
-        if (feedbackText != null)
-        {
-            feedbackText.text = "";
-        }
+        ClearFeedback();
     }
 
     public void ShowMainMenu()
@@ -54,6 +64,8 @@ public class UIManager : MonoBehaviour
         SetPanel(gameHUDPanel, false);
         SetPanel(pausePanel, false);
         SetPanel(resultPanel, false);
+
+        ClearFeedback();
     }
 
     public void ShowGameHUD()
@@ -83,6 +95,8 @@ public class UIManager : MonoBehaviour
         SetPanel(gameHUDPanel, false);
         SetPanel(pausePanel, false);
         SetPanel(resultPanel, true);
+
+        ClearFeedback();
 
         if (resultTitleText != null)
         {
@@ -141,14 +155,41 @@ public class UIManager : MonoBehaviour
             StopCoroutine(feedbackCoroutine);
         }
 
-        feedbackCoroutine = StartCoroutine(ShowFeedbackRoutine(message));
+        bool isMiss = message == "Miss";
+
+        feedbackCoroutine = StartCoroutine(ShowFeedbackRoutine(message, isMiss));
+
+        if (isMiss)
+        {
+            ShowMissFlash();
+        }
     }
 
     public void ClearFeedback()
     {
+        if (feedbackCoroutine != null)
+        {
+            StopCoroutine(feedbackCoroutine);
+            feedbackCoroutine = null;
+        }
+
+        if (missFlashCoroutine != null)
+        {
+            StopCoroutine(missFlashCoroutine);
+            missFlashCoroutine = null;
+        }
+
         if (feedbackText != null)
         {
             feedbackText.text = "";
+            feedbackText.transform.localScale = Vector3.one;
+        }
+
+        if (missFlashImage != null)
+        {
+            Color color = missFlashImage.color;
+            color.a = 0f;
+            missFlashImage.color = color;
         }
     }
 
@@ -166,13 +207,82 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    private IEnumerator ShowFeedbackRoutine(string message)
+    private IEnumerator ShowFeedbackRoutine(string message, bool isMiss)
     {
         feedbackText.text = message;
 
-        yield return new WaitForSecondsRealtime(feedbackDuration);
+        if (isMiss)
+        {
+            feedbackText.color = missColor;
+            feedbackText.fontSize = missFontSize;
+        }
+        else
+        {
+            feedbackText.color = goodColor;
+            feedbackText.fontSize = goodFontSize;
+        }
+
+        float timer = 0f;
+
+        Vector3 startScale = Vector3.one * 1.25f;
+        Vector3 endScale = Vector3.one;
+
+        feedbackText.transform.localScale = startScale;
+
+        while (timer < feedbackDuration)
+        {
+            timer += Time.unscaledDeltaTime;
+
+            float t = timer / feedbackDuration;
+            feedbackText.transform.localScale = Vector3.Lerp(startScale, endScale, t);
+
+            yield return null;
+        }
 
         feedbackText.text = "";
+        feedbackText.transform.localScale = Vector3.one;
+
+        feedbackCoroutine = null;
+    }
+
+    private void ShowMissFlash()
+    {
+        if (missFlashImage == null)
+        {
+            return;
+        }
+
+        if (missFlashCoroutine != null)
+        {
+            StopCoroutine(missFlashCoroutine);
+        }
+
+        missFlashCoroutine = StartCoroutine(MissFlashRoutine());
+    }
+
+    private IEnumerator MissFlashRoutine()
+    {
+        Color color = missFlashImage.color;
+
+        float timer = 0f;
+
+        while (timer < missFlashDuration)
+        {
+            timer += Time.unscaledDeltaTime;
+
+            float t = timer / missFlashDuration;
+            float alpha = Mathf.Lerp(missFlashMaxAlpha, 0f, t);
+
+            color.a = alpha;
+            missFlashImage.color = color;
+
+            yield return null;
+        }
+
+        color.a = 0f;
+        missFlashImage.color = color;
+
+        missFlashCoroutine = null;
     }
 
     private void SetPanel(GameObject panel, bool active)
